@@ -4,24 +4,22 @@
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 ![Status](https://img.shields.io/badge/Status-In%20Development-orange?style=flat-square)
 
-> Intraday volume pattern analysis engine for KOSPI 200 constituents.  
-> Aggregates 1-minute candlestick data across 200 stocks × 240 trading days  
+> Intraday price & volume pattern analysis engine for KOSPI 200 constituents.  
+> Aggregates 1-minute candlestick data across 200 stocks × 249 trading days  
 > to extract statistically meaningful buy/sell timing signals.
 
 ---
 
 ## Overview
 
-KOSPI 200 편입 종목의 1년치 분봉 거래량 데이터를 수집·집계하여,  
-장중 시간대별 평균 거래량 패턴을 도출하는 분석 엔진.
+KOSPI 200 편입 종목의 1년치 분봉 데이터를 수집·집계하여,  
+장중 시간대별 평균 거래량·가격 패턴을 도출하는 분석 엔진.
 
 ```
-수집   200 종목 × 240 거래일 × 390 분봉 ≈ 18,720,000 rows
-집계   절대평균 / 정규화평균 (종목 간 스케일 차이 제거)
-출력   장중 09:00 ~ 15:30 거래량 패턴 그래프
+수집   200 종목 × 249 거래일 × 391 분봉 ≈ 19,400,000 rows
+집계   절대평균 / 정규화평균 (거래량, 시가, 고가, 저가, 종가)
+출력   장중 09:00 ~ 15:30 패턴 그래프
 ```
-
-향후 가격 데이터(고점·저점)를 추가하여 매수/매도 타이밍 모델로 확장 예정.
 
 ---
 
@@ -39,26 +37,22 @@ KOSPI 200 편입 종목의 1년치 분봉 거래량 데이터를 수집·집계�
 
 ### 1. 절대평균 (Absolute Mean)
 
-종목·거래일 구분 없이 특정 분(minute)의 거래량을 단순 합산 후 평균.
+종목·거래일 구분 없이 특정 분(minute)의 값을 단순 합산 후 평균.
 
 ```
-AbsMean(t) = Σ Volume(stock_i, day_j, time_t) / (200 × 240)
+AbsMean(t) = Σ Value(stock_i, day_j, time_t) / N
 ```
-
-대형주 거래량이 전체 평균을 지배하는 특성을 그대로 반영.  
-시장 전체의 실제 자금 흐름 규모를 나타낸다.
 
 ### 2. 정규화평균 (Normalized Mean)
 
-각 종목·거래일의 하루 총거래량 대비 분봉 비율로 정규화 후 평균.
+각 종목·거래일의 하루 총합 대비 분봉 비율로 정규화 후 평균.
 
 ```
-NormVol(stock_i, day_j, time_t) = Volume(stock_i, day_j, time_t) / DailyTotal(stock_i, day_j)
-NormMean(t) = Σ NormVol(stock_i, day_j, time_t) / (200 × 240)
+NormVal(stock_i, day_j, time_t) = Value(stock_i, day_j, time_t) / DailyTotal(stock_i, day_j)
+NormMean(t) = Σ NormVal(stock_i, day_j, time_t) / N
 ```
 
-종목 간 거래량 스케일 차이를 제거하여 순수한 시간대별 패턴을 추출.  
-소형주와 대형주를 동등한 가중치로 반영한다.
+종목 간 스케일 차이를 제거하여 순수한 시간대별 패턴을 추출한다.
 
 ---
 
@@ -67,23 +61,30 @@ NormMean(t) = Σ NormVol(stock_i, day_j, time_t) / (200 × 240)
 ```
 quanta/
 ├── collector/
-│   ├── kiwoom_client.py       # 키움증권 OpenAPI+ COM 인터페이스
-│   ├── kospi200_fetcher.py    # KOSPI 200 종목 리스트 수집 (pykrx)
-│   └── minute_bar_fetcher.py  # 분봉 데이터 수집 (OPT10080 TR)
+│   ├── kiwoom/
+│   │   ├── kiwoom_client.py            # 키움 OpenAPI+ 로그인 (32bit COM)
+│   │   └── kiwoom_minute_bar_fetcher.py # 과거 1년치 분봉 수집 (OPT10080)
+│   ├── hantoo/
+│   │   ├── hantoo_client.py            # 한국투자증권 REST API 인증
+│   │   └── minute_bar_fetcher.py       # 매일 당일 분봉 수집
+│   └── kospi200_fetcher.py             # KOSPI 200 종목 리스트 수집
 │
 ├── storage/
-│   └── parquet_store.py       # 종목별 Parquet 저장/로드
+│   └── parquet_store.py                # 종목별 Parquet 저장/로드/append
 │
 ├── aggregator/
-│   ├── absolute_mean.py       # 절대평균 계산
-│   └── normalized_mean.py     # 정규화평균 계산
+│   ├── base_aggregator.py              # 공통 집계 베이스 클래스
+│   ├── volume_aggregator.py            # 거래량 집계
+│   ├── open_aggregator.py              # 시가 집계
+│   ├── high_aggregator.py              # 고가 집계
+│   ├── low_aggregator.py               # 저가 집계
+│   └── close_aggregator.py             # 종가 집계
 │
 ├── visualizer/
-│   └── volume_chart.py        # 장중 거래량 패턴 시각화
+│   └── volume_chart.py                 # 장중 패턴 시각화
 │
 ├── docs/
-│   ├── requirements.docx      # 요구사항 정의서
-│   └── requirements.pdf       # 요구사항 정의서 (PDF)
+│   └── requirements_v02.pdf            # 요구사항 정의서
 │
 ├── main.py
 └── README.md
@@ -94,29 +95,45 @@ quanta/
 ## Data Pipeline
 
 ```
-[pykrx]                         KOSPI 200 종목 리스트 수집
+[FinanceDataReader]              KOSPI 200 종목 리스트 수집 → tickers.parquet
     ↓
-[키움 OPT10080 TR]              200 종목 × 1년치 분봉 수집
-    ↓                           (3.6초/건 rate limit 준수, ~12분 소요)
-[Parquet]                       종목별 로컬 저장
-    ↓                           (예상 용량 500MB ~ 1GB)
-[pandas / numpy]                절대평균 / 정규화평균 집계
+[키움 OPT10080 TR]              200 종목 × 1년치 분봉 초기 적재 (32bit / Windows)
+    ↓                           (연속 조회, 약 50분 소요)
+[Parquet]                       종목별 로컬 저장 (date, time, open, high, low, close, volume)
     ↓
-[plotly / matplotlib]           장중 거래량 패턴 그래프 출력
+[한투 REST API]                 매일 15:30 당일 분봉 증분 수집 (GitHub Actions)
+    ↓
+[BaseAggregator]                거래량 / 시가 / 고가 / 저가 / 종가 절대평균·정규화평균 집계
+    ↓
+[plotly]                        장중 패턴 그래프 → Streamlit Cloud 배포
 ```
 
 ---
 
 ## Requirements
 
+### 초기 적재 (키움 / Windows 전용)
+
 ```
-Windows 10/11       키움증권 OpenAPI+ COM 방식 (Windows 전용)
-Python 3.10+
+Windows 10/11
+Python 3.9 32bit (venv32)
 키움증권 계좌 및 OpenAPI+ 신청 완료
 ```
 
 ```bash
-pip install pykrx pyarrow pandas numpy plotly PyQt5
+# venv32 환경
+pip install PyQt5 pandas fastparquet finance-datareader
+```
+
+### 매일 배치 / 집계 / 시각화
+
+```
+Python 3.10+
+한국투자증권 계좌 및 OpenAPI 신청 완료
+```
+
+```bash
+pip install pandas numpy plotly streamlit finance-datareader fastparquet requests python-dotenv
 ```
 
 ---
@@ -125,21 +142,21 @@ pip install pykrx pyarrow pandas numpy plotly PyQt5
 
 | 항목 | 내용 |
 |------|------|
-| 실행 환경 | Windows 전용 (키움 COM API) |
-| 분봉 제공 범위 | 키움 OPT10080 과거 데이터 제공 범위에 따라 수집 기간 상이할 수 있음 |
-| 데이터 규모 | 200 × 240 × 390 ≈ 1,872만 row |
-| API 호출 제한 | TR 요청 3.6초/건, 전체 수집 약 12분 소요 |
-| 송금 처리 | 오픈뱅킹 미연동, 실서비스 전환 시 별도 연동 필요 |
+| 초기 적재 환경 | Windows 전용 (키움 COM API / 32bit Python) |
+| 매일 배치 환경 | GitHub Actions (Ubuntu) / 한투 REST API |
+| 데이터 규모 | 200 × 249 × 391 ≈ 1,940만 row |
+| 동시호가 구간 | 15:20~15:29 거래량 0 분봉은 키움이 제외하여 제공 (정상) |
+| 분봉 제공 범위 | 키움 실계좌 기준 약 1년치 제공 확인 |
 
 ---
 
 ## Roadmap
 
-- [ ] Phase 1 — 환경 구축 및 파일럿 수집 (5~10개 종목 테스트)
-- [ ] Phase 2 — KOSPI 200 전 종목 1년치 분봉 수집
-- [ ] Phase 3 — 절대평균 / 정규화평균 집계
-- [ ] Phase 4 — 장중 거래량 패턴 시각화 (그래프 2개)
-- [ ] Phase 5 — 가격 데이터 추가 (고점·저점 평균)
+- [x] Phase 1 — 환경 구축 (키움 32bit venv32 / 한투 REST 환경 분리)
+- [x] Phase 2 — KOSPI 200 전 종목 1년치 분봉 초기 적재 (키움 OPT10080)
+- [x] Phase 3 — 거래량·시가·고가·저가·종가 절대평균 / 정규화평균 집계
+- [ ] Phase 4 — 장중 패턴 시각화 (plotly 그래프)
+- [ ] Phase 5 — GitHub Actions 배치 + Streamlit Cloud 배포
 - [ ] Phase 6 — 매수/매도 타이밍 신호 도출
 
 ---
@@ -148,7 +165,7 @@ pip install pykrx pyarrow pandas numpy plotly PyQt5
 
 | 문서 | 링크 |
 |------|------|
-| 요구사항 정의서 (PDF)  | [docs/requirements.pdf](docs/requirements_v02.pdf) |
+| 요구사항 정의서 (PDF) | [docs/requirements_v02.pdf](docs/requirements_v02.pdf) |
 
 ---
 
