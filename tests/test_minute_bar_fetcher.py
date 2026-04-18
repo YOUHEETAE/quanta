@@ -3,8 +3,8 @@ import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from collector.hantoo_client import HantooClient
-from collector.minute_bar_fetcher import MinuteBarFetcher
+from collector.hantoo.hantoo_client import HantooClient
+from collector.hantoo.minute_bar_fetcher import MinuteBarFetcher
 
 
 def test_fetch_single_ticker():
