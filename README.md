@@ -148,7 +148,7 @@ pip install pykrx pyarrow pandas numpy plotly PyQt5
 
 | 문서 | 링크 |
 |------|------|
-| 요구사항 정의서 (PDF)  | [docs/requirements.pdf](docs/requirements.pdf) |
+| 요구사항 정의서 (PDF)  | [docs/requirements.pdf](docs/requirements_v02.pdf) |
 
 ---
 
