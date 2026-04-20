@@ -4,10 +4,26 @@ import pandas as pd
 from storage.parquet_store import ParquetStore
 
 
+def _ensure_data(path):
+    has_data = os.path.exists(path) and any(
+        f.endswith(".parquet") for f in os.listdir(path)
+    )
+    if not has_data:
+        from huggingface_hub import snapshot_download
+        with st.spinner("데이터 다운로드 중... (최초 1회, 약 1~2분 소요)"):
+            snapshot_download(
+                repo_id="youheetae/quanta-data",
+                repo_type="dataset",
+                local_dir=path,
+                token=st.secrets["HF_TOKEN"],
+            )
+
+
 @st.cache_data
 def load_data():
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     path = os.path.join(base, "storage/data")
+    _ensure_data(path)
     return ParquetStore(base_dir=path)
 
 
