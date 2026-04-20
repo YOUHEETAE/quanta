@@ -1,5 +1,6 @@
 import sys
 import os
+import time
 import logging
 
 sys.path.append(".")
@@ -9,13 +10,12 @@ from collector.kiwoom.kiwoom_client import KiwoomClient
 from collector.kiwoom.kiwoom_minute_bar_fetcher import KiwoomMinuteBarFetcher
 from storage.parquet_store import ParquetStore
 
-# 로깅 설정
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
     handlers=[
         logging.FileHandler("storage/collect.log", encoding="utf-8"),
-        logging.StreamHandler(),  # 터미널에도 출력
+        logging.StreamHandler(),
     ],
 )
 logger = logging.getLogger(__name__)
@@ -46,11 +46,13 @@ def main():
 
             store.save(ticker, data)
             logger.info(f"→ {ticker} 저장 완료 ({len(data)}개)")
+            time.sleep(3)
 
         except Exception as e:
             logger.error(f"→ {ticker} 에러 발생: {e}, 스킵")
             if store.exists(ticker):
                 os.remove(f"storage/data/{ticker}.parquet")
+            time.sleep(10)
             continue
 
     logger.info("전체 수집 완료")

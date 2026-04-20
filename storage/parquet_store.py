@@ -9,15 +9,26 @@ class ParquetStore:
 
     def save(self, ticker, data):
         df = pd.DataFrame(data)
-        path = f"{self.base_dir}/{ticker}.parquet"
-        df.to_parquet(path, index=False)
-        print(f"저장 완료: {path} ({len(df)}개)")
+        tmp_path = f"{self.base_dir}/{ticker}.tmp.parquet"
+        final_path = f"{self.base_dir}/{ticker}.parquet"
+        df.to_parquet(tmp_path, index=False)
+        os.replace(tmp_path, final_path)  # 원자적 rename
+        print(f"저장 완료: {final_path} ({len(df)}개)")
 
     def load(self, ticker):
         path = f"{self.base_dir}/{ticker}.parquet"
         if not os.path.exists(path):
             return None
         return pd.read_parquet(path)
+
+    def exists(self, ticker):
+        final_path = f"{self.base_dir}/{ticker}.parquet"
+        tmp_path = f"{self.base_dir}/{ticker}.tmp.parquet"
+        # tmp 파일 있으면 불완전한 데이터 → 재수집
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+            return False
+        return os.path.exists(final_path)
 
     def save_tickers(self, tickers):
         df = pd.DataFrame({"ticker": tickers})
@@ -30,6 +41,3 @@ class ParquetStore:
         if not os.path.exists(path):
             return None
         return pd.read_parquet(path)["ticker"].tolist()
-
-    def exists(self, ticker):
-        return os.path.exists(f"{self.base_dir}/{ticker}.parquet")
