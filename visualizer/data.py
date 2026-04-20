@@ -58,15 +58,10 @@ def filter_period(df, period):
     return df
 
 
-@st.cache_data
+@st.cache_resource
 def load_combined(data_path, period):
     df = pd.read_parquet(os.path.join(data_path, "combined.parquet"))
-    df["volume"] = df["volume"].astype(float).abs()
-    df["open"] = df["open"].astype(float).abs()
-    df["high"] = df["high"].astype(float).abs()
-    df["low"] = df["low"].astype(float).abs()
-    df["close"] = df["close"].astype(float).abs()
-    df["time_label"] = df["time"].apply(lambda t: f"{t[:2]}:{t[2:4]}")
+    df["time_label"] = df["time"].astype(str).apply(lambda t: f"{t[:2]}:{t[2:4]}")
     df = filter_period(df, period)
-    df = df[(df["time"] <= "151900") | (df["time"] == "153000")]
+    df = df[(df["time"].astype(str) <= "151900") | (df["time"].astype(str) == "153000")]
     return df
