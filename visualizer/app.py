@@ -52,7 +52,7 @@ else:
     with st.spinner("데이터 로딩 중..."):
         df = load_ticker_df(store, ticker)
         df = filter_period(df, period)
-        df = df[(df["time"] <= "152000") | (df["time"] == "153000")]
+        df = df[(df["time"] <= "151900") | (df["time"] == "153000")]
 
     if view == "개별 지표":
         result = get_calc_result(df, indicator)

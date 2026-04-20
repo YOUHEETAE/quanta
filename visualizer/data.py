@@ -52,6 +52,6 @@ def load_combined(_store, period):
     for ticker in tickers:
         df = load_ticker_df(_store, ticker)
         df = filter_period(df, period)
-        df = df[(df["time"] <= "152000") | (df["time"] == "153000")]
+        df = df[(df["time"] <= "151900") | (df["time"] == "153000")]
         all_df.append(df)
     return pd.concat(all_df)
