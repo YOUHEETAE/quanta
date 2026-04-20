@@ -59,12 +59,14 @@ def filter_period(df, period):
 
 
 @st.cache_data
-def load_combined(_store, period):
-    tickers = _store.load_tickers()
-    all_df = []
-    for ticker in tickers:
-        df = load_ticker_df(_store, ticker)
-        df = filter_period(df, period)
-        df = df[(df["time"] <= "151900") | (df["time"] == "153000")]
-        all_df.append(df)
-    return pd.concat(all_df)
+def load_combined(data_path, period):
+    df = pd.read_parquet(os.path.join(data_path, "combined.parquet"))
+    df["volume"] = df["volume"].astype(float).abs()
+    df["open"] = df["open"].astype(float).abs()
+    df["high"] = df["high"].astype(float).abs()
+    df["low"] = df["low"].astype(float).abs()
+    df["close"] = df["close"].astype(float).abs()
+    df["time_label"] = df["time"].apply(lambda t: f"{t[:2]}:{t[2:4]}")
+    df = filter_period(df, period)
+    df = df[(df["time"] <= "151900") | (df["time"] == "153000")]
+    return df

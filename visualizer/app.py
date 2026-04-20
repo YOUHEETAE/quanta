@@ -33,7 +33,7 @@ st.title("KOSPI 200 장중 패턴 분석")
 
 if mode == "전체 KOSPI 200":
     with st.spinner("데이터 로딩 중..."):
-        combined = load_combined(store, period)
+        combined = load_combined(data_path, period)
 
     if view == "개별 지표":
         result = get_calc_result(combined, indicator)
