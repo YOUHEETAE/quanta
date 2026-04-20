@@ -30,6 +30,17 @@ class ParquetStore:
             return False
         return os.path.exists(final_path)
 
+    def update(self, ticker, new_data):
+        df_new = pd.DataFrame(new_data)
+        existing = self.load(ticker)
+        if existing is not None:
+            df_merged = pd.concat([existing, df_new], ignore_index=True)
+            df_merged = df_merged.drop_duplicates(subset=["date", "time"])
+            df_merged = df_merged.sort_values(["date", "time"]).reset_index(drop=True)
+        else:
+            df_merged = df_new
+        self.save(ticker, df_merged.to_dict("records"))
+
     def save_tickers(self, tickers):
         df = pd.DataFrame({"ticker": tickers})
         path = f"{self.base_dir}/tickers.parquet"

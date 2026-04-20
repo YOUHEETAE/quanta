@@ -33,25 +33,29 @@ def main():
     logger.info(f"총 {len(tickers)}개 종목 수집 시작")
 
     for i, ticker in enumerate(tickers):
-        if store.exists(ticker):
-            logger.info(f"[{i+1}/{len(tickers)}] {ticker} 이미 존재, 스킵")
-            continue
         try:
-            logger.info(f"[{i+1}/{len(tickers)}] {ticker} 수집 중...")
-            data = fetcher.fetch(ticker)
-
-            if not data:
-                logger.warning(f"→ {ticker} 데이터 없음, 스킵")
-                continue
-
-            store.save(ticker, data)
-            logger.info(f"→ {ticker} 저장 완료 ({len(data)}개)")
+            if store.exists(ticker):
+                existing = store.load(ticker)
+                since_date = existing["date"].max()
+                logger.info(f"[{i+1}/{len(tickers)}] {ticker} 증분 수집 (since {since_date})")
+                data = fetcher.fetch(ticker, since_date=since_date)
+                if not data:
+                    logger.info(f"→ {ticker} 새 데이터 없음, 스킵")
+                    continue
+                store.update(ticker, data)
+                logger.info(f"→ {ticker} 업데이트 완료 (+{len(data)}개)")
+            else:
+                logger.info(f"[{i+1}/{len(tickers)}] {ticker} 신규 수집 중...")
+                data = fetcher.fetch(ticker)
+                if not data:
+                    logger.warning(f"→ {ticker} 데이터 없음, 스킵")
+                    continue
+                store.save(ticker, data)
+                logger.info(f"→ {ticker} 저장 완료 ({len(data)}개)")
             time.sleep(3)
 
         except Exception as e:
             logger.error(f"→ {ticker} 에러 발생: {e}, 스킵")
-            if store.exists(ticker):
-                os.remove(f"storage/data/{ticker}.parquet")
             time.sleep(10)
             continue
 

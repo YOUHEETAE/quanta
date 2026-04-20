@@ -30,9 +30,14 @@ class KiwoomMinuteBarFetcher:
             "GetCommDataEx(QString, QString)", trcode, "주식분봉차트조회"
         )
         for row in data:
+            date = row[2].strip()[:8]
+            if self.since_date and date <= self.since_date:
+                self.remained_data = False
+                self.tr_loop.exit()
+                return
             self.tr_data.append(
                 {
-                    "date": row[2].strip()[:8],
+                    "date": date,
                     "time": row[2].strip()[8:],
                     "open": row[3].strip(),
                     "high": row[4].strip(),
@@ -44,7 +49,7 @@ class KiwoomMinuteBarFetcher:
 
         self.remained_data = prev_next == "2"
         print(
-            f"수집: {len(self.tr_data)}개, 마지막: {self.tr_data[-1]['date']}, 연속: {self.remained_data}"
+            f"수집: {len(self.tr_data)}개, 마지막: {self.tr_data[-1]['date'] if self.tr_data else '없음'}, 연속: {self.remained_data}"
         )
         self.tr_loop.exit()
 
@@ -75,10 +80,11 @@ class KiwoomMinuteBarFetcher:
         self.tr_loop.exec_()
         timer.stop()
 
-    def fetch(self, ticker):
+    def fetch(self, ticker, since_date=None):
         self.tr_data = []
         self.remained_data = False
         self.error_flag = False
+        self.since_date = since_date  # "YYYYMMDD" 이후 데이터만 수집
 
         self._request(ticker, 0)
 
