@@ -6,12 +6,16 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import streamlit as st
-from data import load_data, load_ticker_names, load_ticker_df, load_combined, filter_period
+from data import load_data, load_ticker_names, load_ticker_df, load_combined, filter_period, get_data_path, _ensure_data
 from indicators import INDICATOR_INFO, get_calc_result, get_combined_results
 from charts import draw_single, draw_combined
 
-store = load_data()
-ticker_names = load_ticker_names()
+data_path = get_data_path()
+with st.spinner("데이터 다운로드 중... (최초 1회, 약 1~2분 소요)"):
+    _ensure_data(data_path)
+
+store = load_data(data_path)
+ticker_names = load_ticker_names(data_path)
 
 st.sidebar.title("Quanta")
 mode = st.sidebar.radio("모드", ["전체 KOSPI 200", "개별 종목"])

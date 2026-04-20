@@ -19,21 +19,19 @@ def _ensure_data(path):
             )
 
 
-@st.cache_data
-def load_data():
+def get_data_path():
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    path = os.path.join(base, "storage/data")
-    _ensure_data(path)
+    return os.path.join(base, "storage/data")
+
+
+@st.cache_data
+def load_data(path):
     return ParquetStore(base_dir=path)
 
 
 @st.cache_data
-def load_ticker_names():
-    path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "storage/data/ticker_names.parquet",
-    )
-    return pd.read_parquet(path)
+def load_ticker_names(data_path):
+    return pd.read_parquet(os.path.join(data_path, "ticker_names.parquet"))
 
 
 @st.cache_data
