@@ -17,13 +17,10 @@ KOSPI 200 편입 종목의 1년치 분봉 데이터를 수집·집계하여,
 
 ```
 수집   200 종목 × 249 거래일 × ~380 분봉 ≈ ~19M rows
-       (동시호가 구간 15:20~15:29 제외, 키움 특성상 미제공)
-집계   절대평균 / 정규화평균 (거래량, 시가, 고가, 저가, 종가)
-출력   장중 09:00 ~ 15:30 패턴 그래프
+       (동시호가 구간 15:20~15:29 제외, 15:30 동시호가 체결 포함)
+집계   절대평균 / 정규화평균 (거래량, 시가, 변동성, 방향성, 위치)
+출력   장중 09:00 ~ 15:30 패턴 그래프 (Streamlit Cloud)
 ```
-
-This allows detection of abnormal volume concentration  
-relative to historical intraday baselines.
 
 ---
 
@@ -45,8 +42,6 @@ relative to historical intraday baselines.
 
 ```
 AbsMean(t) = Σ Value(stock_i, day_j, time_t) / N
-
-where N = number of valid observations at time t
 ```
 
 대형주 거래량이 전체 평균을 지배하는 특성을 그대로 반영.  
@@ -59,15 +54,9 @@ where N = number of valid observations at time t
 ```
 NormVal(stock_i, day_j, time_t) = Value(stock_i, day_j, time_t) / DailyTotal(stock_i, day_j)
 NormMean(t) = Σ NormVal(stock_i, day_j, time_t) / N
-
-where N = number of valid observations at time t
 ```
 
-종목 간 스케일 차이를 제거하여 순수한 시간대별 패턴을 추출한다.  
-This removes cross-sectional scale differences between stocks.
-
-All minute bars are aligned to a fixed time index (09:00–15:30),
-and missing values are excluded. N represents the number of valid observations at each time point.
+종목 간 스케일 차이를 제거하여 순수한 시간대별 패턴을 추출한다.
 
 ---
 
@@ -78,7 +67,7 @@ quanta/
 ├── collector/
 │   ├── kiwoom/
 │   │   ├── kiwoom_client.py             # 키움 OpenAPI+ 로그인 (32bit COM)
-│   │   └── kiwoom_minute_bar_fetcher.py # 과거 1년치 분봉 수집 (OPT10080)
+│   │   └── kiwoom_minute_bar_fetcher.py # 분봉 수집 (OPT10080), 증분 업데이트 지원
 │   ├── hantoo/
 │   │   ├── hantoo_client.py             # 한국투자증권 REST API 인증
 │   │   └── minute_bar_fetcher.py        # 매일 당일 분봉 수집
@@ -86,23 +75,23 @@ quanta/
 │
 ├── storage/
 │   ├── data/
-│   │   ├── raw/                         # 종목별 원본 Parquet
-│   │   └── processed/                   # 집계 결과 Parquet
-│   └── parquet_store.py                 # 저장/로드/append
+│   │   ├── {ticker}.parquet             # 종목별 원본 Parquet
+│   │   ├── ticker_names.parquet         # 종목명 매핑
+│   │   └── aggregated/                  # 사전 집계 결과 (앱 전용)
+│   └── parquet_store.py                 # 저장/로드/증분 업데이트
 │
 ├── aggregator/
-│   ├── base_aggregator.py               # 공통 집계 베이스 클래스
-│   ├── volume_aggregator.py             # 거래량 집계
-│   ├── open_aggregator.py               # 시가 집계
-│   ├── high_aggregator.py               # 고가 집계
-│   ├── low_aggregator.py                # 저가 집계
-│   └── close_aggregator.py              # 종가 집계
+│   └── base_aggregator.py               # 절대평균 / 정규화평균 공통 로직
 │
 ├── visualizer/
-│   └── volume_chart.py                  # 장중 패턴 시각화
+│   ├── app.py                           # Streamlit 메인 앱
+│   ├── data.py                          # 데이터 로딩 (HF Hub 연동)
+│   ├── indicators.py                    # 지표 계산 함수
+│   └── charts.py                        # Plotly 차트
 │
-├── docs/
-│   └── requirements_v02.pdf             # 요구사항 정의서
+├── script/
+│   ├── preaggregate.py                  # KOSPI 200 사전 집계 실행
+│   └── upload_to_hf.py                  # HF Hub 업로드
 │
 ├── main.py
 └── README.md
@@ -113,19 +102,28 @@ quanta/
 ## Data Pipeline
 
 ```
-[FinanceDataReader]              KOSPI 200 종목 리스트 수집 → tickers.parquet
-    ↓
-[키움 OPT10080 TR]              200 종목 × 1년치 분봉 초기 적재 (32bit / Windows)
-    ↓                           (연속 조회, 약 50분 소요)
-[storage/data/raw/]             종목별 Parquet 저장 (date, time, open, high, low, close, volume)
-    ↓
-[한투 REST API]                 매일 15:30 당일 분봉 증분 수집 (GitHub Actions)
-    ↓
-[BaseAggregator]                거래량 / 시가 / 고가 / 저가 / 종가 절대평균·정규화평균 집계
-    ↓
-[storage/data/processed/]       집계 결과 저장
-    ↓
-[Plotly]                        장중 패턴 그래프 → Streamlit Cloud 배포
+[초기 적재 - 1회]
+키움 OPT10080 (Windows 32bit)
+  → 200 종목 × 1년치 분봉 수집
+  → storage/data/{ticker}.parquet
+
+[매일 업데이트]
+한투 REST API (GitHub Actions)
+  → 당일 분봉 증분 수집
+  → 기존 parquet에 append
+
+[집계 및 배포]
+script/preaggregate.py
+  → 개별 종목 파일 → KOSPI 200 집계 결과 생성
+  → storage/data/aggregated/
+
+script/upload_to_hf.py
+  → HF Hub (youheetae/quanta-data) 업로드
+
+[시각화]
+Streamlit Cloud
+  → HF에서 aggregated/ + 개별 종목 파일 다운로드
+  → 장중 패턴 그래프 렌더링
 ```
 
 ---
@@ -141,10 +139,10 @@ Python 3.9 32bit (venv32)
 ```
 
 ```bash
-pip install PyQt5 pandas fastparquet finance-datareader
+pip install PyQt5 pandas pyarrow finance-datareader
 ```
 
-### 매일 배치 / 집계 / 시각화
+### 집계 / 시각화 / 자동화
 
 ```
 Python 3.10+
@@ -152,7 +150,7 @@ Python 3.10+
 ```
 
 ```bash
-pip install pandas numpy plotly streamlit finance-datareader fastparquet requests python-dotenv
+pip install -r requirements.txt
 ```
 
 ---
@@ -164,7 +162,7 @@ pip install pandas numpy plotly streamlit finance-datareader fastparquet request
 | 초기 적재 환경 | Windows 전용 (키움 COM API / 32bit Python) |
 | 매일 배치 환경 | GitHub Actions (Ubuntu) / 한투 REST API |
 | 데이터 규모 | 200 × 249 × ~380 ≈ ~19M rows |
-| 동시호가 구간 | 15:20~15:29 거래량 0 분봉은 키움이 제외하여 제공 (정상) |
+| 동시호가 구간 | 15:20~15:29 제외, 15:30 체결가만 표시 |
 | 분봉 제공 범위 | 키움 실계좌 기준 약 1년치 제공 확인 |
 
 ---
@@ -173,10 +171,11 @@ pip install pandas numpy plotly streamlit finance-datareader fastparquet request
 
 - [x] Phase 1 — 환경 구축 (키움 32bit venv32 / 한투 REST 환경 분리)
 - [x] Phase 2 — KOSPI 200 전 종목 1년치 분봉 초기 적재 (키움 OPT10080)
-- [x] Phase 3 — 거래량·시가·고가·저가·종가 절대평균 / 정규화평균 집계
-- [ ] Phase 4 — 장중 패턴 시각화 (Plotly 그래프)
-- [ ] Phase 5 — GitHub Actions 배치 + Streamlit Cloud 배포
-- [ ] Phase 6 — 매수/매도 타이밍 신호 도출
+- [x] Phase 3 — 거래량·시가·변동성·방향성·위치 절대평균 / 정규화평균 집계
+- [x] Phase 4 — 장중 패턴 시각화 (Plotly + Streamlit Cloud 배포)
+- [x] Phase 4.5 — OOM 해결: 사전 집계 구조로 전환 + 증분 업데이트 지원
+- [ ] Phase 5 — 한투 REST API 교체 + GitHub Actions 완전 자동화
+- [ ] Phase 6 — 매수/매도 타이밍 신호 도출 (백테스팅)
 
 ---
 
