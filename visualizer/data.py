@@ -5,8 +5,9 @@ from storage.parquet_store import ParquetStore
 
 
 def _ensure_data(path):
-    has_data = os.path.exists(path) and any(
-        f.endswith(".parquet") for f in os.listdir(path)
+    aggregated_dir = os.path.join(path, "aggregated")
+    has_data = os.path.exists(aggregated_dir) and any(
+        f.endswith(".parquet") for f in os.listdir(aggregated_dir)
     )
     if not has_data:
         from huggingface_hub import snapshot_download
@@ -24,7 +25,7 @@ def get_data_path():
 
 
 @st.cache_data
-def load_data(path):
+def load_ticker_store(path):
     return ParquetStore(base_dir=path)
 
 
@@ -58,10 +59,17 @@ def filter_period(df, period):
     return df
 
 
-@st.cache_resource
-def load_combined(data_path, period):
-    df = pd.read_parquet(os.path.join(data_path, "combined.parquet"))
-    df["time_label"] = df["time"].astype(str).apply(lambda t: f"{t[:2]}:{t[2:4]}")
-    df = filter_period(df, period)
-    df = df[(df["time"].astype(str) <= "151900") | (df["time"].astype(str) == "153000")]
-    return df
+@st.cache_data
+def load_kospi200_indicator(data_path, indicator, period):
+    safe_key = indicator.replace(" ", "_")
+    path = os.path.join(data_path, "aggregated", f"kospi200_{safe_key}_{period}.parquet")
+    return pd.read_parquet(path)
+
+
+@st.cache_data
+def load_kospi200_combined(data_path, period):
+    agg = os.path.join(data_path, "aggregated")
+    vol_r = pd.read_parquet(os.path.join(agg, f"kospi200_combined_vol_{period}.parquet"))
+    vlt_r = pd.read_parquet(os.path.join(agg, f"kospi200_combined_vlt_{period}.parquet"))
+    ret_r = pd.read_parquet(os.path.join(agg, f"kospi200_combined_ret_{period}.parquet"))
+    return vol_r, vlt_r, ret_r
