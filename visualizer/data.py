@@ -10,13 +10,12 @@ def _ensure_data(path):
     )
     if not has_data:
         from huggingface_hub import snapshot_download
-        with st.spinner("데이터 다운로드 중... (최초 1회, 약 1~2분 소요)"):
-            snapshot_download(
-                repo_id="youheetae/quanta-data",
-                repo_type="dataset",
-                local_dir=path,
-                token=st.secrets["HF_TOKEN"],
-            )
+        snapshot_download(
+            repo_id="youheetae/quanta-data",
+            repo_type="dataset",
+            local_dir=path,
+            token=st.secrets["HF_TOKEN"],
+        )
 
 
 def get_data_path():
