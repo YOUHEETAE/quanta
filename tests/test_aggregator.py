@@ -109,8 +109,8 @@ def test_volume_absolute_mean():
     print("거래량 절대평균:")
     print(result)
 
-    # 090000: (1000 + 1500 + 500 + 800) / 4 = 950
-    assert abs(result[result["time"] == "090000"]["volume"].values[0] - 950) < 0.01
+    # 09:00: (1000 + 1500 + 500 + 800) / 4 = 950
+    assert abs(result[result["time_label"] == "09:00"]["val"].values[0] - 950) < 0.01
     print("절대평균 검증 통과")
 
 
