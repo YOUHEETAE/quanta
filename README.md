@@ -24,6 +24,12 @@ KOSPI 200 편입 종목의 1년치 분봉 데이터를 수집·집계하여,
 
 ---
 
+## 실행화면
+
+![Streamlit 실행화면](docs/screenshots/image.png)
+
+---
+
 ## Research Question
 
 > *"KOSPI 200 전체 종목을 1년간 집계했을 때,  
